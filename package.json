@@ -1,8 +1,8 @@
 {
   "dependencies": {
+    "@octokit/auth-app": "^6.0.1",
     "axios": "^1.5.1",
-    "get-urls": "^12.1.0",
-    "simple-git": "^3.20.0"
+    "dotenv": "^16.3.1"
   },
   "scripts": {
     "start": "node index.mjs"

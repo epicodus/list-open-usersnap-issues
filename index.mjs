@@ -1,10 +1,10 @@
-import { default as axios } from 'axios';
-import simpleGit from 'simple-git';
-import { promises as fs } from 'fs';
-import { join, extname } from 'path';
-const git = simpleGit();
+// For Github workflow, set ORG and INSTALLATION_TOKEN env variables
+// For local use, set ORG, PRIVATE_KEY, APP_ID, INSTALLATION_ID env variables
 
-const curriculumDir = '/Users/epicodus/curriculum';
+import { default as axios } from 'axios';
+import { getInstallationAccessToken } from './getInstallationToken.mjs';
+import "dotenv/config";
+
 const repos = [
   'pre-work-full-stack',
   'intro-full-stack',
@@ -12,44 +12,39 @@ const repos = [
   'react-full-stack',
   'c-sharp-full-stack',
   'career-services-full-stack',
-  'code-reviews',
   'shared-full-stack',
   'DEI-full-stack',
   'capstone',
-  'workshops'
-]
+  'workshops',
+];
 
-// await git.clone('https://github.com/epicodus-curriculum/pre-work-full-stack', 'pre-work-full-stack');
+const org = process.env.ORG;
+const INSTALLATION_ACCESS_TOKEN = process.env.INSTALLATION_TOKEN || await getInstallationAccessToken();
 
-const traverseDir = async (dir) => {
-  const files = await fs.readdir(dir);
-  for (const file of files) {
-    const fullPath = join(dir, file);
-    const stat = await fs.stat(fullPath);
-    if (stat.isDirectory()) {
-      await traverseDir(fullPath);
-    } else if (stat.isFile() && extname(file) === '.md') {
-      const content = await fs.readFile(fullPath, 'utf8');
-      const matches = content.match(/\(http[^\)]+\)\)?/g);
-      const urls = matches?.map(url => url.slice(1, -1))
-      if (urls) {
-        for (let url of urls) {
-          url = url.includes(")") && !url.includes("(") ? url.slice(0, -1) : url;
-          try {
-            await axios.get(url);
-          } catch (error) {
-            if (error?.response?.status !== 403) {
-              console.log(`${fullPath}:  ${url} - ${error}`);
-            }
-          }
-        }
-      }
-    }
+async function getOpenIssues(repo) {
+  const client = axios.create({
+    baseURL: `https://api.github.com/repos/${org}/${repo}/issues?state=open&sort=created&direction=desc`,
+    headers: {
+      Accept: "application/vnd.github.raw+json",
+      Authorization: `Bearer ${INSTALLATION_ACCESS_TOKEN}`,
+    },
+  });
+  try {
+    const response = await client.get('/');
+    return response.data;
+  } catch(e) {
+    console.error(e);
   }
-};
+}
 
 for (const repo of repos) {
   console.log(`\n${repo.toUpperCase()}...`);
-  await traverseDir(join(curriculumDir, repo));
-  console.log('');
+  const openIssues = await getOpenIssues(repo);
+  const usersnapIssues = openIssues.filter(issue => issue.title.includes('[Usersnap]'));
+  for (const issue of usersnapIssues) {
+    console.log('');
+    console.log(new Date(issue.created_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    console.log(issue.title);
+    console.log(issue.html_url);
+  }
 }
